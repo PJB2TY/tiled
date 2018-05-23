@@ -425,25 +425,18 @@ void TemplatesDock::fixTileset()
 
 TemplatesView::TemplatesView(QWidget *parent)
     : QTreeView(parent)
+    , mModel(sharedTemplateModel())
 {
     setUniformRowHeights(true);
     setHeaderHidden(true);
     setDragEnabled(true);
     setDragDropMode(QAbstractItemView::DragOnly);
 
-    Preferences *prefs = Preferences::instance();
-    connect(prefs, &Preferences::templatesDirectoryChanged,
+    setModel(mModel.data());
+    setRootIndex(mModel->index(mModel->rootPath()));
+
+    connect(mModel.data(), &QFileSystemModel::rootPathChanged,
             this, &TemplatesView::onTemplatesDirectoryChanged);
-
-    QDir templatesDir(prefs->templatesDirectory());
-    if (!templatesDir.exists())
-        templatesDir.setPath(QDir::currentPath());
-
-    mModel = new ObjectTemplateModel(this);
-    mModel->setRootPath(templatesDir.absolutePath());
-
-    setModel(mModel);
-    setRootIndex(mModel->index(templatesDir.absolutePath()));
 
     QHeaderView *headerView = header();
     headerView->setStretchLastSection(false);
@@ -496,8 +489,7 @@ void TemplatesView::onCurrentChanged(const QModelIndex &index)
     emit currentTemplateChanged(objectTemplate);
 }
 
-void TemplatesView::onTemplatesDirectoryChanged(const QString &templatesDirectory)
+void TemplatesView::onTemplatesDirectoryChanged(const QString &rootPath)
 {
-    mModel->setRootPath(templatesDirectory);
-    setRootIndex(mModel->index(QDir(templatesDirectory).absolutePath()));
+    setRootIndex(mModel->index(rootPath));
 }

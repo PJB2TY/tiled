@@ -24,6 +24,7 @@
 #include "objecttemplate.h"
 #include "objecttemplateformat.h"
 #include "pluginmanager.h"
+#include "preferences.h"
 #include "templatemanager.h"
 #include "utils.h"
 
@@ -48,10 +49,6 @@ ObjectTemplateModel::ObjectTemplateModel(QObject *parent):
     setFilter(QDir::AllDirs | QDir::Files | QDir::NoDotAndDotDot);
     setNameFilters(nameFilters);
     setNameFilterDisables(false); // hide filtered files
-}
-
-ObjectTemplateModel::~ObjectTemplateModel()
-{
 }
 
 int ObjectTemplateModel::columnCount(const QModelIndex &parent) const
@@ -106,6 +103,35 @@ QMimeData *ObjectTemplateModel::mimeData(const QModelIndexList &indexes) const
 
     mimeData->setData(QLatin1String(TEMPLATES_MIMETYPE), encodedData);
     return mimeData;
+}
+
+
+QSharedPointer<ObjectTemplateModel> sharedTemplateModel()
+{
+    static QWeakPointer<ObjectTemplateModel> templateModel;
+    auto model = templateModel.lock();
+    if (model)
+        return model;
+
+    model = QSharedPointer<ObjectTemplateModel>::create();
+    templateModel = model;
+
+    Preferences *prefs = Preferences::instance();
+
+    // Set the initial root path
+    QDir templatesDir(prefs->templatesDirectory());
+    if (!templatesDir.exists())
+        templatesDir.setPath(QDir::currentPath());
+    model->setRootPath(templatesDir.absolutePath());
+
+    // Make sure the root path stays updated
+    ObjectTemplateModel *modelPointer = model.data();
+    QObject::connect(prefs, &Preferences::templatesDirectoryChanged,
+                     modelPointer, [modelPointer] (const QString &templatesDirectory) {
+        modelPointer->setRootPath(QDir(templatesDirectory).absolutePath());
+    });
+
+    return model;
 }
 
 } // namespace Internal

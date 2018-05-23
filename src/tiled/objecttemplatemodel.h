@@ -22,6 +22,7 @@
 #pragma once
 
 #include <QFileSystemModel>
+#include <QSharedPointer>
 
 namespace Tiled {
 
@@ -35,7 +36,6 @@ class ObjectTemplateModel : public QFileSystemModel
 
 public:
     ObjectTemplateModel(QObject *parent = nullptr);
-    ~ObjectTemplateModel();
 
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
@@ -45,6 +45,8 @@ public:
     QStringList mimeTypes() const override;
     QMimeData *mimeData(const QModelIndexList &indexes) const override;
 };
+
+QSharedPointer<ObjectTemplateModel> sharedTemplateModel();
 
 } // namespace Internal
 } // namespace Tiled
