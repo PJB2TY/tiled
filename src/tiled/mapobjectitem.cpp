@@ -39,7 +39,7 @@ using namespace Tiled;
 using namespace Tiled::Internal;
 
 MapObjectItem::MapObjectItem(MapObject *object, MapDocument *mapDocument,
-                             ObjectGroupItem *parent):
+                             QGraphicsItem *parent):
     QGraphicsItem(parent),
     mObject(object),
     mMapDocument(mapDocument)
@@ -88,6 +88,16 @@ void MapObjectItem::syncWithMapObject()
     setVisible(mObject->isVisible());
 }
 
+void MapObjectItem::setIsHoverIndicator(bool isHoverIndicator)
+{
+    if (mIsHoveredIndicator == isHoverIndicator)
+        return;
+
+    mIsHoveredIndicator = isHoverIndicator;
+    setOpacity(isHoverIndicator ? 0.5 : 1.0);
+    update();
+}
+
 QRectF MapObjectItem::boundingRect() const
 {
     return mBoundingRect;
@@ -107,7 +117,7 @@ void MapObjectItem::paint(QPainter *painter,
     qreal scale = static_cast<MapView*>(widget->parent())->zoomable()->scale();
     painter->translate(-pos());
     mMapDocument->renderer()->setPainterScale(scale);
-    mMapDocument->renderer()->drawMapObject(painter, mObject, mColor);
+    mMapDocument->renderer()->drawMapObject(painter, mObject, mIsHoveredIndicator ? mColor.lighter() : mColor);
 }
 
 void MapObjectItem::resizeObject(const QRectF &bounds)

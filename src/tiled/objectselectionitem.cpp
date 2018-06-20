@@ -377,6 +377,8 @@ ObjectSelectionItem::ObjectSelectionItem(MapDocument *mapDocument,
         addRemoveObjectLabels();
 }
 
+ObjectSelectionItem::~ObjectSelectionItem() = default;
+
 void ObjectSelectionItem::selectedObjectsChanged()
 {
     addRemoveObjectLabels();
@@ -389,26 +391,33 @@ void ObjectSelectionItem::hoveredMapObjectChanged(MapObject *object,
     Preferences *prefs = Preferences::instance();
     auto visibility = prefs->objectLabelVisibility();
 
-    if (visibility == Preferences::AllObjectLabels)
-        return;
+    if (visibility != Preferences::AllObjectLabels) {
+        bool labelForHoveredObject = prefs->labelForHoveredObject();
 
-    bool labelForHoveredObject = prefs->labelForHoveredObject();
+        // Make sure any newly hovered object has a label
+        if (object && labelForHoveredObject && !mObjectLabels.contains(object)) {
+            MapObjectLabel *labelItem = new MapObjectLabel(object, this);
+            labelItem->syncWithMapObject(mMapDocument->renderer());
+            mObjectLabels.insert(object, labelItem);
+        }
 
-    // Make sure any newly hovered object has a label
-    if (object && labelForHoveredObject && !mObjectLabels.contains(object)) {
-        MapObjectLabel *labelItem = new MapObjectLabel(object, this);
-        labelItem->syncWithMapObject(mMapDocument->renderer());
-        mObjectLabels.insert(object, labelItem);
+        // Maybe remove the label from the previous object
+        if (MapObjectLabel *label = mObjectLabels.value(previous)) {
+            if (visibility == Preferences::SelectedObjectLabels)
+                if (mMapDocument->selectedObjects().contains(previous))
+                    return;
+
+            delete label;
+            mObjectLabels.remove(previous);
+        }
     }
 
-    // Maybe remove the label from the previous object
-    if (MapObjectLabel *label = mObjectLabels.value(previous)) {
-        if (visibility == Preferences::SelectedObjectLabels)
-            if (mMapDocument->selectedObjects().contains(previous))
-                return;
-
-        delete label;
-        mObjectLabels.remove(previous);
+    if (object) {
+        mHoveredMapObjectItem.reset(new MapObjectItem(object, mMapDocument, this));
+        mHoveredMapObjectItem->setEnabled(false);
+        mHoveredMapObjectItem->setIsHoverIndicator(true);
+    } else {
+        mHoveredMapObjectItem.reset();
     }
 }
 
