@@ -92,8 +92,12 @@ public:
 protected:
     bool event(QEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
     void selectionChanged(const QItemSelection &selected,
                           const QItemSelection &deselected) override;
+
+    void drawRow(QPainter *painter, const QStyleOptionViewItem &option,
+                 const QModelIndex &index) const override;
 
 private slots:
     void onActivated(const QModelIndex &proxyIndex);

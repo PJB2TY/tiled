@@ -34,6 +34,8 @@
 #include <QPalette>
 #include <QStyle>
 
+#include "qtcompat_p.h"
+
 using namespace Tiled;
 using namespace Tiled::Internal;
 
@@ -147,6 +149,13 @@ QVariant MapObjectModel::data(const QModelIndex &index, int role) const
             return mapObject->isVisible() ? Qt::Checked : Qt::Unchecked;
         case OpacityRole:
             return qreal(1);
+        case Qt::BackgroundRole:
+//            if (mMapDocument->hoveredMapObject() == mapObject) {
+//                QColor highlightColor = QGuiApplication::palette().highlight().color();
+//                highlightColor.setAlpha(64);
+//                return highlightColor;
+//            }
+            Q_FALLTHROUGH();
         default:
             return QVariant();
         }
@@ -361,6 +370,9 @@ void MapObjectModel::setMapDocument(MapDocument *mapDocument)
                 this, &MapObjectModel::layerAboutToBeRemoved);
         connect(mMapDocument, &MapDocument::tileTypeChanged,
                 this, &MapObjectModel::tileTypeChanged);
+
+        connect(mMapDocument, &MapDocument::hoveredMapObjectChanged,
+                this, &MapObjectModel::hoveredMapObjectChanged);
     }
 
     endResetModel();
@@ -438,7 +450,26 @@ void MapObjectModel::tileTypeChanged(Tile *tile)
     }
 }
 
-void MapObjectModel::emitObjectsChanged(const QList<MapObject *> &objects, const QList<Column> &columns)
+void MapObjectModel::hoveredMapObjectChanged(MapObject *object, MapObject *previous)
+{
+    static const QVector<int> roles = { Qt::BackgroundRole };
+
+    if (previous) {
+        emit dataChanged(index(previous, 0),
+                         index(previous, LastColumn),
+                         roles);
+    }
+
+    if (object) {
+        emit dataChanged(index(object, 0),
+                         index(object, LastColumn),
+                         roles);
+    }
+}
+
+void MapObjectModel::emitObjectsChanged(const QList<MapObject *> &objects,
+                                        const QList<Column> &columns,
+                                        const QVector<int> &roles)
 {
     emit objectsChanged(objects);
     if (columns.isEmpty())
@@ -446,7 +477,9 @@ void MapObjectModel::emitObjectsChanged(const QList<MapObject *> &objects, const
 
     auto minMaxPair = std::minmax_element(columns.begin(), columns.end());
     for (auto object : objects) {
-        emit dataChanged(index(object, *minMaxPair.first), index(object, *minMaxPair.second));
+        emit dataChanged(index(object, *minMaxPair.first),
+                         index(object, *minMaxPair.second),
+                         roles);
     }
 }
 

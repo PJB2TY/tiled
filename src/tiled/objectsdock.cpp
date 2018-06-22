@@ -39,10 +39,13 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QMenu>
+#include <QPainter>
 #include <QSettings>
 #include <QToolBar>
 #include <QToolButton>
 #include <QUrl>
+
+#include <QtDebug>
 
 static const char FIRST_COLUMN_WIDTH_KEY[] = "ObjectsDock/FirstSectionSize";
 static const char VISIBLE_COLUMNS_KEY[] = "ObjectsDock/VisibleSections";
@@ -251,12 +254,40 @@ void ObjectsDock::documentAboutToClose(Document *document)
 
 ///// ///// ///// ///// /////
 
+class ObjectsViewport : public QWidget
+{
+    Q_OBJECT
+
+public:
+    ObjectsViewport(QWidget *parent = nullptr)
+        : QWidget(parent)
+    {}
+
+signals:
+    void mouseLeft();
+
+protected:
+    void leaveEvent(QEvent *) override { emit mouseLeft(); }
+};
+
+
 ObjectsView::ObjectsView(QWidget *parent)
     : QTreeView(parent)
     , mMapDocument(nullptr)
     , mProxyModel(new ReversingProxyModel(this))
     , mSynching(false)
 {
+    auto objectsViewport = new ObjectsViewport;
+    objectsViewport->setMouseTracking(true);
+
+    connect(objectsViewport, &ObjectsViewport::mouseLeft, this, [this] {
+        if (mMapDocument)
+            mMapDocument->setHoveredMapObject(nullptr);
+    });
+
+    setViewport(objectsViewport);
+    setMouseTracking(true);
+
     setUniformRowHeights(true);
     setModel(mProxyModel);
     setItemDelegate(new IconCheckDelegate(IconCheckDelegate::VisibilityIcon, false, this));
@@ -347,6 +378,18 @@ void ObjectsView::mousePressEvent(QMouseEvent *event)
     QTreeView::mousePressEvent(event);
 }
 
+void ObjectsView::mouseMoveEvent(QMouseEvent *event)
+{
+    if (!mMapDocument)
+        return;
+
+    const QModelIndex proxyIndex = indexAt(event->pos());
+    const QModelIndex index = mProxyModel->mapToSource(proxyIndex);
+
+    MapObject *mapObject = mapObjectModel()->toMapObject(index);
+    mMapDocument->setHoveredMapObject(mapObject);
+}
+
 void ObjectsView::onActivated(const QModelIndex &proxyIndex)
 {
     const QModelIndex index = mProxyModel->mapToSource(proxyIndex);
@@ -393,6 +436,22 @@ void ObjectsView::selectionChanged(const QItemSelection &selected,
         mMapDocument->setSelectedObjects(selectedObjects);
         mSynching = false;
     }
+}
+
+void ObjectsView::drawRow(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &proxyIndex) const
+{
+    if (mMapDocument) {
+        const QModelIndex index = mProxyModel->mapToSource(proxyIndex);
+        const MapObject *mapObject = mapObjectModel()->toMapObject(index);
+
+        if (mapObject && mapObject == mMapDocument->hoveredMapObject()) {
+            QColor hoverColor = QGuiApplication::palette().highlight().color();
+            hoverColor.setAlpha(64);
+            painter->fillRect(option.rect, hoverColor);
+        }
+    }
+
+    QTreeView::drawRow(painter, option, proxyIndex);
 }
 
 void ObjectsView::selectedObjectsChanged()
@@ -474,3 +533,5 @@ void ObjectsView::synchronizeSelectedItems()
                              QItemSelectionModel::Clear);
     mSynching = false;
 }
+
+#include "objectsdock.moc"
