@@ -51,8 +51,11 @@ public:
                     Qt::KeyboardModifiers modifiers) override;
     void mousePressed(QGraphicsSceneMouseEvent *event) override;
     void mouseReleased(QGraphicsSceneMouseEvent *event) override;
+    void modifiersChanged(Qt::KeyboardModifiers modifiers) override;
 
 protected:
+    void updateEnabledState() override;
+
     enum State {
         Idle,
         Preview,
@@ -81,6 +84,8 @@ private:
                           Qt::KeyboardModifiers modifiers);
 
     State mState = Idle;
+    QPointF mLastScenePos;
+    Qt::KeyboardModifiers mLastModifiers = Qt::NoModifier;
     std::unique_ptr<ObjectGroup> mNewMapObjectGroup;
     std::unique_ptr<ObjectGroupItem> mObjectGroupItem;
 };
