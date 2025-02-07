@@ -30,6 +30,7 @@
 #include "editabletilelayer.h"
 #include "editabletileset.h"
 #include "editablewangset.h"
+#include "editableworld.h"
 #include "logginginterface.h"
 #include "mapeditor.h"
 #include "mapview.h"
@@ -103,6 +104,8 @@ ScriptManager::ScriptManager(QObject *parent)
     mResetTimer.setSingleShot(true);
     connect(&mResetTimer, &QTimer::timeout, this, &ScriptManager::reset);
 
+    qRegisterMetaType<AssetType::Value>("AssetType");
+    qRegisterMetaType<BlendModeNS::Value>("BlendMode");
     qRegisterMetaType<Cell>();
     qRegisterMetaType<EditableAsset*>();
     qRegisterMetaType<EditableGroupLayer*>();
@@ -115,6 +118,7 @@ ScriptManager::ScriptManager(QObject *parent)
     qRegisterMetaType<EditableTileLayer*>();
     qRegisterMetaType<EditableTileset*>();
     qRegisterMetaType<EditableWangSet*>();
+    qRegisterMetaType<EditableWorld*>();
     qRegisterMetaType<Font>();
     qRegisterMetaType<MapEditor*>();
     qRegisterMetaType<MapView*>();
@@ -131,6 +135,7 @@ ScriptManager::ScriptManager(QObject *parent)
     qRegisterMetaType<ScriptTilesetFormatWrapper*>();
     qRegisterMetaType<ScriptImage*>();
     qRegisterMetaType<WangIndex::Value>("WangIndex");
+
     connect(&mWatcher, &FileSystemWatcher::pathsChanged,
             this, &ScriptManager::scriptFilesChanged);
 
@@ -299,11 +304,7 @@ bool ScriptManager::checkError(QJSValue value, const QString &program)
     QString errorString = value.toString();
     QString stack = value.property(QStringLiteral("stack")).toString();
 
-#if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
     const auto stackEntries = QStringView(stack).split(QLatin1Char('\n'));
-#else
-    const auto stackEntries = stack.splitRef(QLatin1Char('\n'));
-#endif
     if (stackEntries.size() > 0 && !stackEntries.first().startsWith(QLatin1String("%entry@"))) {
         // Add stack if there were more than one entries
         errorString.append(QLatin1Char('\n'));
@@ -390,6 +391,8 @@ void ScriptManager::initialize()
 
     globalObject.setProperty(QStringLiteral("tiled"), engine->newQObject(mModule));
     globalObject.setProperty(QStringLiteral("Tiled"), engine->newQMetaObject<ScriptModule>());
+    globalObject.setProperty(QStringLiteral("AssetType"), engine->newQMetaObject(&AssetType::staticMetaObject));
+    globalObject.setProperty(QStringLiteral("BlendMode"), engine->newQMetaObject(&BlendModeNS::staticMetaObject));
     globalObject.setProperty(QStringLiteral("GroupLayer"), engine->newQMetaObject<EditableGroupLayer>());
     globalObject.setProperty(QStringLiteral("Image"), engine->newQMetaObject<ScriptImage>());
     globalObject.setProperty(QStringLiteral("ImageLayer"), engine->newQMetaObject<EditableImageLayer>());
@@ -400,8 +403,8 @@ void ScriptManager::initialize()
     globalObject.setProperty(QStringLiteral("TileLayer"), engine->newQMetaObject<EditableTileLayer>());
     globalObject.setProperty(QStringLiteral("TileMap"), engine->newQMetaObject<EditableMap>());
     globalObject.setProperty(QStringLiteral("Tileset"), engine->newQMetaObject<EditableTileset>());
-    globalObject.setProperty(QStringLiteral("WangSet"), engine->newQMetaObject<EditableWangSet>());
     globalObject.setProperty(QStringLiteral("WangIndex"), engine->newQMetaObject(&WangIndex::staticMetaObject));
+    globalObject.setProperty(QStringLiteral("WangSet"), engine->newQMetaObject<EditableWangSet>());
 
     registerBase64(engine);
     registerDialog(engine);

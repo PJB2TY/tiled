@@ -103,14 +103,14 @@ private:
     void readTileLayerData(TileLayer &tileLayer);
     void readTileLayerRect(TileLayer &tileLayer,
                            Map::LayerDataFormat layerDataFormat,
-                           QStringRef encoding,
+                           QStringView encoding,
                            QRect bounds);
     void decodeBinaryLayerData(TileLayer &tileLayer,
                                const QByteArray &data,
                                Map::LayerDataFormat format,
                                QRect bounds);
     void decodeCSVLayerData(TileLayer &tileLayer,
-                            QStringRef text,
+                            QStringView text,
                             QRect bounds);
 
     /**
@@ -307,9 +307,8 @@ std::unique_ptr<Map> MapReaderPrivate::readMap()
         mMap.reset();
     } else {
         // Try to load the tileset images for embedded tilesets
-        auto tilesets = mMap->tilesets();
-        for (SharedTileset &tileset : tilesets) {
-            if (!tileset->isCollection() && tileset->fileName().isEmpty())
+        for (const SharedTileset &tileset : mMap->tilesets()) {
+            if (tileset->fileName().isEmpty())
                 tileset->loadImage();
         }
 
@@ -512,9 +511,9 @@ void MapReaderPrivate::readTilesetTile(Tileset &tileset)
 
     // Read tile quadrant terrain ids as Wang IDs. This is possible because the
     // terrain types (loaded as WangSet) are always stored before the tiles.
-    const QStringRef terrain = atts.value(QLatin1String("terrain"));
+    const auto terrain = atts.value(QLatin1String("terrain"));
     if (!terrain.isEmpty() && tileset.wangSetCount() > 0) {
-        QVector<QStringRef> quadrants = terrain.split(QLatin1Char(','));
+        const auto quadrants = terrain.split(QLatin1Char(','));
         WangId wangId;
         if (quadrants.size() == 4) {
             for (int i = 0; i < 4; ++i) {
@@ -778,7 +777,7 @@ void MapReaderPrivate::readTilesetWangSets(Tileset &tileset)
                 } else if (xml.name() == QLatin1String("wangtile")) {
                     const QXmlStreamAttributes tileAtts = xml.attributes();
                     const int tileId = tileAtts.value(QLatin1String("tileid")).toInt();
-                    const QStringRef wangIdString = tileAtts.value(QLatin1String("wangid"));
+                    const auto wangIdString = tileAtts.value(QLatin1String("wangid"));
 
                     bool ok = true;
                     WangId wangId;
@@ -893,6 +892,9 @@ static void readLayerAttributes(Layer &layer,
         parallaxFactor.setY(factorY);
 
     layer.setParallaxFactor(parallaxFactor);
+
+    const auto mode = atts.value(QLatin1String("mode")).toString();
+    layer.setBlendMode(blendModeFromString(mode));
 }
 
 std::unique_ptr<TileLayer> MapReaderPrivate::readTileLayer()
@@ -963,7 +965,7 @@ void MapReaderPrivate::readTileLayerData(TileLayer &tileLayer)
 
 void MapReaderPrivate::readTileLayerRect(TileLayer &tileLayer,
                                          Map::LayerDataFormat layerDataFormat,
-                                         QStringRef encoding,
+                                         QStringView encoding,
                                          QRect bounds)
 {
     Q_ASSERT(xml.isStartElement() && (xml.name() == QLatin1String("data") ||
@@ -1044,7 +1046,7 @@ void MapReaderPrivate::decodeBinaryLayerData(TileLayer &tileLayer,
 }
 
 void MapReaderPrivate::decodeCSVLayerData(TileLayer &tileLayer,
-                                          QStringRef text,
+                                          QStringView text,
                                           QRect bounds)
 {
     int currentIndex = 0;
@@ -1274,13 +1276,8 @@ QPolygonF MapReaderPrivate::readPolygon()
 
     const QXmlStreamAttributes atts = xml.attributes();
     const QString points = atts.value(QLatin1String("points")).toString();
-#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
-    const QStringList pointsList = points.split(QLatin1Char(' '),
-                                                QString::SkipEmptyParts);
-#else
     const QStringList pointsList = points.split(QLatin1Char(' '),
                                                 Qt::SkipEmptyParts);
-#endif
 
     QPolygonF polygon;
     bool ok = true;
@@ -1292,21 +1289,12 @@ QPolygonF MapReaderPrivate::readPolygon()
             break;
         }
 
-#if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
         const qreal x = QStringView(point).left(commaPos).toDouble(&ok);
         if (!ok)
             break;
         const qreal y = QStringView(point).mid(commaPos + 1).toDouble(&ok);
         if (!ok)
             break;
-#else
-        const qreal x = point.leftRef(commaPos).toDouble(&ok);
-        if (!ok)
-            break;
-        const qreal y = point.midRef(commaPos + 1).toDouble(&ok);
-        if (!ok)
-            break;
-#endif
 
         polygon.append(QPointF(x, y));
     }
@@ -1501,7 +1489,7 @@ std::unique_ptr<Map> MapReader::readMap(const QString &fileName)
 SharedTileset MapReader::readTileset(QIODevice *device, const QString &path)
 {
     SharedTileset tileset = d->readTileset(device, path);
-    if (tileset && !tileset->isCollection())
+    if (tileset)
         tileset->loadImage();
 
     return tileset;

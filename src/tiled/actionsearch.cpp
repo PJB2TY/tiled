@@ -1,6 +1,6 @@
 /*
  * actionsearch.cpp
- * Copyright 2022, Chris Boehm AKA dogboydog
+ * Copyright 2022, dogboydog
  * Copyright 2022, Thorbjørn Lindeijer <bjorn@lindeijer.nl>
  *
  * This file is part of Tiled.
@@ -91,22 +91,13 @@ void ActionMatchDelegate::paint(QPainter *painter,
     painter->save();
 
     const QString name = index.data().toString();
-
-#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
-    const auto ranges = Utils::matchingRanges(mWords, &name);
-#else
     const auto ranges = Utils::matchingRanges(mWords, name);
-#endif
 
     QString nameHtml;
     int nameIndex = 0;
 
-    auto nameRange = [&] (int first, int last) -> QStringRef {
-#if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
+    auto nameRange = [&] (int first, int last) -> QStringView {
         return QStringView(name).mid(first, last - first + 1);
-#else
-        return name.midRef(first, last - first + 1);
-#endif
     };
 
     for (const auto &range : ranges) {
@@ -154,7 +145,7 @@ void ActionMatchDelegate::paint(QPainter *painter,
     painter->setFont(fonts.big);
     painter->drawStaticText(nameRect.topLeft(), staticText);
 
-    const QIcon icon = index.data(Qt::DecorationRole).value<QIcon>();
+    const auto icon = index.data(Qt::DecorationRole).value<QIcon>();
     if (!icon.isNull()) {
         const auto iconRect = QRect(option.rect.topLeft() + QPoint(margin, margin),
                                     QSize(iconSize, iconSize));
@@ -162,13 +153,14 @@ void ActionMatchDelegate::paint(QPainter *painter,
         icon.paint(painter, iconRect);
     }
 
-    const QKeySequence shortcut = index.data(ActionLocatorSource::ShortcutRole).value<QKeySequence>();
+    const auto shortcut = index.data(ActionLocatorSource::ShortcutRole).value<QKeySequence>();
     if (!shortcut.isEmpty()) {
         const QString shortcutText = shortcut.toString(QKeySequence::NativeText);
         const QFontMetrics smallFontMetrics(fonts.small);
 
         staticText.setTextFormat(Qt::PlainText);
         staticText.setText(shortcutText);
+        staticText.prepare(painter->transform(), fonts.small);
 
         const int centeringMargin = (shortcutRect.height() - smallFontMetrics.height()) / 2;
         painter->setOpacity(0.75);
@@ -242,7 +234,7 @@ QString ActionLocatorSource::placeholderText() const
 
 QVector<ActionLocatorSource::Match> ActionLocatorSource::findActions(const QStringList &words)
 {
-    const QRegularExpression re(QLatin1String("(?<=^|[^&])&"));
+    static const QRegularExpression re(QLatin1String("(?<=^|[^&])&"));
     const QList<Id> actions = ActionManager::actions();
     const Id searchActionsId("SearchActions");
 
@@ -260,12 +252,7 @@ QVector<ActionLocatorSource::Match> ActionLocatorSource::findActions(const QStri
         QString sanitizedText = action->text();
         sanitizedText.replace(re, QString());
 
-#if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
         const int totalScore = Utils::matchingScore(words, sanitizedText);
-#else
-        const int totalScore = Utils::matchingScore(words, &sanitizedText);
-#endif
-
         if (totalScore > 0) {
             result.append(Match {
                               totalScore,
